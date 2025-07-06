@@ -1,9 +1,9 @@
 streamlit
-yfinance
-ta
+tensorflow
 pandas
 numpy
 scikit-learn
-tensorflow
+yfinance
 joblib
+ta
 

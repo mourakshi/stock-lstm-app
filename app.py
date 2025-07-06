@@ -29,17 +29,17 @@ def fetch_data(ticker):
     }, inplace=True)
 
     try:
-        df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
-        df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
-        df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
-        df["MACD_Line"] = ta.trend.macd(df["Close_yfin"])
-        df["SMA_30"] = ta.trend.sma_indicator(df["Close_yfin"], window=30)
-        df["EMA_50"] = ta.trend.ema_indicator(df["Close_yfin"], window=50)
-        df["Return"] = df["Close_yfin"].pct_change()
-        df["Volatility"] = df["Return"].rolling(window=10).std()
-    except Exception as e:
-        print("Indicator error:", e)
-        raise ValueError("⚠️ Indicator computation failed. Please try a different stock.")
+    df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
+    df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
+    df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
+    df["MACD_Line"] = ta.trend.macd(df["Close_yfin"])
+    df["SMA_30"] = ta.trend.sma_indicator(df["Close_yfin"], window=30)
+    df["EMA_50"] = ta.trend.ema_indicator(df["Close_yfin"], window=50)
+    df["Return"] = df["Close_yfin"].pct_change()
+    df["Volatility"] = df["Return"].rolling(window=10).std()
+except Exception as e:
+    print("Indicator error:", e)
+    raise ValueError("⚠️ Indicator computation failed. Please try a different stock.")
 
     df.dropna(inplace=True)
     return df

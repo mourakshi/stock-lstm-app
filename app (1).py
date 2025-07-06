@@ -18,8 +18,11 @@ import pandas as pd
 def fetch_data(ticker):
     df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=False)
 
-    if df.empty or "Close" not in df.columns:
-        raise ValueError("Downloaded data is empty or malformed.")
+    if df.empty:
+        raise ValueError("⚠️ Could not fetch data. Please check the stock symbol.")
+
+    if "Close" not in df.columns:
+        raise ValueError("⚠️ 'Close' column missing from data.")
 
     df.rename(columns={
         "Open": "Open_yfin",
@@ -29,9 +32,6 @@ def fetch_data(ticker):
         "Volume": "Volume_yfin"
     }, inplace=True)
 
-    df.dropna(inplace=True)
-
-    # Compute indicators with null safety
     try:
         df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
         df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
@@ -42,7 +42,7 @@ def fetch_data(ticker):
         df["Return"] = df["Close_yfin"].pct_change()
         df["Volatility"] = df["Return"].rolling(window=10).std()
     except Exception as e:
-        raise ValueError(f"Indicator computation failed: {e}")
+        raise ValueError(f"⚠️ Indicator computation failed. Try another stock. Error: {e}")
 
     df.dropna(inplace=True)
     return df

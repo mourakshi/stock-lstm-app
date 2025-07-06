@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
 import joblib
-import ta  # using 'ta' instead of pandas_ta
+import ta  # For technical indicators
 
 # ===== Load model and scaler =====
 model = load_model("model/model.h5")
@@ -64,9 +64,8 @@ if st.button("Predict Next Day Price"):
 
             # Prepare dummy array for inverse transform
             dummy = np.zeros((1, scaler.n_features_in_))
-            dummy[0][0] = predicted_scaled  # Close_yfin is the first feature
-
-            predicted_price = scaler.inverse_transform(dummy)[0][0]
+            dummy[0][0] = predicted_scaled  # Only Close is filled
+            predicted_price = scaler.inverse_transform(dummy)[:, 0][0]
 
             # ===== Output section =====
             st.success("✅ Prediction Complete")
@@ -88,7 +87,7 @@ if st.button("Predict Next Day Price"):
 # ===== Historical Chart =====
 st.subheader(f"📊 Historical Close Price for {ticker}")
 try:
-    st.line_chart(fetch_data(ticker)["Close_yfin"][-60:])
+    chart_data = fetch_data(ticker)
+    st.line_chart(chart_data["Close_yfin"][-60:])
 except:
     st.warning("Could not load chart. Please check the stock symbol.")
-

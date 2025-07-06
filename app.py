@@ -41,6 +41,7 @@ except Exception as e:
     print("Indicator error:", e)
     raise ValueError("⚠️ Indicator computation failed. Please try a different stock.")
 
+
     df.dropna(inplace=True)
     return df
 

@@ -10,21 +10,45 @@ model = load_model("model/model.h5")
 scaler = joblib.load("model/scaler.save")
 
 # ===== Fetch stock data =====
+import yfinance as yf
+import pandas_ta as ta
+import pandas as pd
+
 def fetch_data(ticker):
-    df = yf.download(ticker, period="6mo")
-    df["SMA_10"] = df["Close"].rolling(window=10).mean()  # Optional, unused here
-    df = df.dropna()
+    df = yf.download(ticker, period="6mo", interval="1d")
+
+    # Rename to match training
+    df.rename(columns={
+        "Open": "Open_yfin",
+        "High": "High_yfin",
+        "Low": "Low_yfin",
+        "Close": "Close_yfin",
+        "Volume": "Volume_yfin"
+    }, inplace=True)
+
+    # Compute indicators on Close_yfin
+    df["SMA_10"] = ta.sma(df["Close_yfin"], length=10)
+    df["EMA_20"] = ta.ema(df["Close_yfin"], length=20)
+    df["RSI_14"] = ta.rsi(df["Close_yfin"], length=14)
+    df["MACD_Line"] = ta.macd(df["Close_yfin"])["MACD_12_26_9"]
+    df["SMA_30"] = ta.sma(df["Close_yfin"], length=30)
+    df["EMA_50"] = ta.ema(df["Close_yfin"], length=50)
+    df["Return"] = df["Close_yfin"].pct_change()
+    df["Volatility"] = df["Return"].rolling(window=10).std()
+
+    df.dropna(inplace=True)
     return df
+
 
 # ===== Preprocess latest 60 days =====
 def preprocess(df):
-    features = ["Close", "Open", "High", "Low", "Volume", "SMA_10", "EMA_20",
-                "RSI_14", "MACD_Line", "SMA_30", "EMA_50", "Return", "Volatility"]  # match your training features
+    features = ["Close_yfin", "Open_yfin", "High_yfin", "Low_yfin", "Volume_yfin", 
+                "SMA_10", "EMA_20", "RSI_14", "MACD_Line", "SMA_30", "EMA_50", "Return", "Volatility"]
 
     df = df[features].dropna()
     last_60 = df[-60:].values
     X_scaled = scaler.transform(last_60)
-    return np.expand_dims(X_scaled, axis=0), df["Close"].iloc[-1]
+    return np.expand_dims(X_scaled, axis=0), df["Close_yfin"].iloc[-1]
 
 
 # ===== Streamlit UI =====

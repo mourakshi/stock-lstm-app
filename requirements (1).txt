@@ -1,8 +1,8 @@
 streamlit
-tensorflow
-pandas
+yfinance
 numpy
+pandas
+tensorflow
 scikit-learn
 joblib
-yfinance
-pandas_ta
+ta

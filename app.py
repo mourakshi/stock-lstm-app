@@ -108,7 +108,3 @@ if df is not None:
 
 
 
-    try:
-        df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
-        df["EMA_20"] = ta.tren_]()
-

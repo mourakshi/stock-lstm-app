@@ -18,10 +18,14 @@ def fetch_data(ticker):
 
 # ===== Preprocess latest 60 days =====
 def preprocess(df):
-    df = df[["Close"]]  # Only use the Close column
+    features = ["Close", "Open", "High", "Low", "Volume", "SMA_10", "EMA_20",
+                "RSI_14", "MACD_Line", "SMA_30", "EMA_50", "Return", "Volatility"]  # match your training features
+
+    df = df[features].dropna()
     last_60 = df[-60:].values
     X_scaled = scaler.transform(last_60)
     return np.expand_dims(X_scaled, axis=0), df["Close"].iloc[-1]
+
 
 # ===== Streamlit UI =====
 st.title("📈 Real-Time Stock Predictor & Investment Simulator")

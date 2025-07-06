@@ -1,7 +1,7 @@
 streamlit
 tensorflow
-yfinance
-joblib
-scikit-learn
 pandas
-matplotlib
+numpy
+scikit-learn
+joblib
+yfinance

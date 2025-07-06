@@ -1,10 +1,11 @@
 streamlit
 yfinance
-numpy
-pandas
-tensorflow
-scikit-learn
-joblib
 ta
+pandas
+numpy
+scikit-learn
+tensorflow
+joblib
+
 
 

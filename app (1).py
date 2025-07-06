@@ -11,13 +11,16 @@ model = load_model("model/model.h5")
 scaler = joblib.load("model/scaler.save")
 
 # ===== Fetch and process stock data =====
+import yfinance as yf
+import ta
+import pandas as pd
+
 def fetch_data(ticker):
-    df = yf.download(ticker, period="6mo", interval="1d")
+    df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=False)
 
-    if df.empty:
-        return pd.DataFrame()
+    if df.empty or "Close" not in df.columns:
+        raise ValueError("Downloaded data is empty or malformed.")
 
-    # Rename columns to match training
     df.rename(columns={
         "Open": "Open_yfin",
         "High": "High_yfin",
@@ -26,15 +29,20 @@ def fetch_data(ticker):
         "Volume": "Volume_yfin"
     }, inplace=True)
 
-    # Compute technical indicators
-    df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
-    df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
-    df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
-    df["MACD_Line"] = ta.trend.macd(df["Close_yfin"])
-    df["SMA_30"] = ta.trend.sma_indicator(df["Close_yfin"], window=30)
-    df["EMA_50"] = ta.trend.ema_indicator(df["Close_yfin"], window=50)
-    df["Return"] = df["Close_yfin"].pct_change()
-    df["Volatility"] = df["Return"].rolling(window=10).std()
+    df.dropna(inplace=True)
+
+    # Compute indicators with null safety
+    try:
+        df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
+        df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
+        df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
+        df["MACD_Line"] = ta.trend.macd(df["Close_yfin"])
+        df["SMA_30"] = ta.trend.sma_indicator(df["Close_yfin"], window=30)
+        df["EMA_50"] = ta.trend.ema_indicator(df["Close_yfin"], window=50)
+        df["Return"] = df["Close_yfin"].pct_change()
+        df["Volatility"] = df["Return"].rolling(window=10).std()
+    except Exception as e:
+        raise ValueError(f"Indicator computation failed: {e}")
 
     df.dropna(inplace=True)
     return df

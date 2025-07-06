@@ -4,20 +4,17 @@ import numpy as np
 import pandas as pd
 from tensorflow.keras.models import load_model
 import joblib
+import ta  # using 'ta' instead of pandas_ta
 
 # ===== Load model and scaler =====
 model = load_model("model/model.h5")
 scaler = joblib.load("model/scaler.save")
 
-# ===== Fetch stock data =====
-import yfinance as yf
-import pandas_ta as ta
-import pandas as pd
-
+# ===== Fetch and process stock data =====
 def fetch_data(ticker):
     df = yf.download(ticker, period="6mo", interval="1d")
 
-    # Rename to match training
+    # Rename columns to match training
     df.rename(columns={
         "Open": "Open_yfin",
         "High": "High_yfin",
@@ -26,19 +23,18 @@ def fetch_data(ticker):
         "Volume": "Volume_yfin"
     }, inplace=True)
 
-    # Compute indicators on Close_yfin
-    df["SMA_10"] = ta.sma(df["Close_yfin"], length=10)
-    df["EMA_20"] = ta.ema(df["Close_yfin"], length=20)
-    df["RSI_14"] = ta.rsi(df["Close_yfin"], length=14)
-    df["MACD_Line"] = ta.macd(df["Close_yfin"])["MACD_12_26_9"]
-    df["SMA_30"] = ta.sma(df["Close_yfin"], length=30)
-    df["EMA_50"] = ta.ema(df["Close_yfin"], length=50)
+    # Compute technical indicators
+    df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
+    df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
+    df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
+    df["MACD_Line"] = ta.trend.macd(df["Close_yfin"])
+    df["SMA_30"] = ta.trend.sma_indicator(df["Close_yfin"], window=30)
+    df["EMA_50"] = ta.trend.ema_indicator(df["Close_yfin"], window=50)
     df["Return"] = df["Close_yfin"].pct_change()
     df["Volatility"] = df["Return"].rolling(window=10).std()
 
     df.dropna(inplace=True)
     return df
-
 
 # ===== Preprocess latest 60 days =====
 def preprocess(df):
@@ -50,31 +46,33 @@ def preprocess(df):
     X_scaled = scaler.transform(last_60)
     return np.expand_dims(X_scaled, axis=0), df["Close_yfin"].iloc[-1]
 
-
 # ===== Streamlit UI =====
+st.set_page_config(page_title="Stock LSTM App", layout="centered")
 st.title("📈 Real-Time Stock Predictor & Investment Simulator")
+
 ticker = st.text_input("Enter stock symbol (e.g. AAPL):", "AAPL")
 investment = st.number_input("💸 Investment Amount ($):", value=1000.0)
 
+# ===== Predict button =====
 if st.button("Predict Next Day Price"):
     with st.spinner("Fetching data and predicting..."):
         try:
             df = fetch_data(ticker)
             X_input, last_price = preprocess(df)
 
-            predicted_scaled = model.predict(X_input)[0][0]
+            predicted_scaled = model.predict(X_input).flatten()[0]
 
-            # Inverse transform to get price
+            # Prepare dummy array for inverse transform
             dummy = np.zeros((1, scaler.n_features_in_))
-            dummy[0][0] = predicted_scaled
+            dummy[0][0] = predicted_scaled  # Close_yfin is the first feature
+
             predicted_price = scaler.inverse_transform(dummy)[0][0]
 
-            # Show results
-            st.success("Prediction Complete ✅")
+            # ===== Output section =====
+            st.success("✅ Prediction Complete")
             st.metric("📉 Last Close Price", f"${last_price:.2f}")
             st.metric("📈 Predicted Next Price", f"${predicted_price:.2f}")
 
-            # Investment simulation
             profit = (predicted_price - last_price) * (investment / last_price)
             st.subheader("💰 Investment Simulation")
             st.write(f"If you invest **${investment:.2f}** now:")
@@ -83,12 +81,14 @@ if st.button("Predict Next Day Price"):
                 st.success(f"📈 Estimated Profit: ${profit:.2f}")
             else:
                 st.error(f"📉 Estimated Loss: ${-profit:.2f}")
+
         except Exception as e:
             st.error(f"Prediction failed: {e}")
 
 # ===== Historical Chart =====
 st.subheader(f"📊 Historical Close Price for {ticker}")
 try:
-    st.line_chart(fetch_data(ticker)["Close"][-60:])
+    st.line_chart(fetch_data(ticker)["Close_yfin"][-60:])
 except:
     st.warning("Could not load chart. Please check the stock symbol.")
+

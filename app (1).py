@@ -14,6 +14,9 @@ scaler = joblib.load("model/scaler.save")
 def fetch_data(ticker):
     df = yf.download(ticker, period="6mo", interval="1d")
 
+    if df.empty:
+        return pd.DataFrame()
+
     # Rename columns to match training
     df.rename(columns={
         "Open": "Open_yfin",
@@ -44,7 +47,7 @@ def preprocess(df):
     df = df[features].dropna()
     last_60 = df[-60:].values
     X_scaled = scaler.transform(last_60)
-    return np.expand_dims(X_scaled, axis=0), df["Close_yfin"].iloc[-1]
+    return np.expand_dims(X_scaled, axis=0), df["Close_yfin"].iloc[-1], df.iloc[-1][features].values  # last row for reconstruction
 
 # ===== Streamlit UI =====
 st.set_page_config(page_title="Stock LSTM App", layout="centered")
@@ -58,36 +61,41 @@ if st.button("Predict Next Day Price"):
     with st.spinner("Fetching data and predicting..."):
         try:
             df = fetch_data(ticker)
-            X_input, last_price = preprocess(df)
-
-            predicted_scaled = model.predict(X_input).flatten()[0]
-
-            # Prepare dummy array for inverse transform
-            dummy = np.zeros((1, scaler.n_features_in_))
-            dummy[0][0] = predicted_scaled  # Only Close is filled
-            predicted_price = scaler.inverse_transform(dummy)[:, 0][0]
-
-            # ===== Output section =====
-            st.success("✅ Prediction Complete")
-            st.metric("📉 Last Close Price", f"${last_price:.2f}")
-            st.metric("📈 Predicted Next Price", f"${predicted_price:.2f}")
-
-            profit = (predicted_price - last_price) * (investment / last_price)
-            st.subheader("💰 Investment Simulation")
-            st.write(f"If you invest **${investment:.2f}** now:")
-            st.write(f"**Predicted Value Tomorrow:** ${investment + profit:.2f}")
-            if profit > 0:
-                st.success(f"📈 Estimated Profit: ${profit:.2f}")
+            if df.empty:
+                st.error("No data returned for this ticker. Please check the symbol.")
             else:
-                st.error(f"📉 Estimated Loss: ${-profit:.2f}")
+                X_input, last_price, last_features = preprocess(df)
+
+                predicted_scaled = model.predict(X_input).flatten()[0]
+
+                # Reconstruct a full scaled row and update predicted close
+                last_scaled = scaler.transform([last_features])
+                last_scaled[0][0] = predicted_scaled  # Replace only Close
+
+                predicted_full = scaler.inverse_transform(last_scaled)
+                predicted_price = predicted_full[0][0]
+
+                # ===== Output section =====
+                st.success("✅ Prediction Complete")
+                st.metric("📉 Last Close Price", f"${last_price:.2f}")
+                st.metric("📈 Predicted Next Price", f"${predicted_price:.2f}")
+
+                profit = (predicted_price - last_price) * (investment / last_price)
+                st.subheader("💰 Investment Simulation")
+                st.write(f"If you invest **${investment:.2f}** now:")
+                st.write(f"**Predicted Value Tomorrow:** ${investment + profit:.2f}")
+                if profit > 0:
+                    st.success(f"📈 Estimated Profit: ${profit:.2f}")
+                else:
+                    st.error(f"📉 Estimated Loss: ${-profit:.2f}")
 
         except Exception as e:
             st.error(f"Prediction failed: {e}")
 
 # ===== Historical Chart =====
 st.subheader(f"📊 Historical Close Price for {ticker}")
-try:
-    chart_data = fetch_data(ticker)
+chart_data = fetch_data(ticker)
+if not chart_data.empty:
     st.line_chart(chart_data["Close_yfin"][-60:])
-except:
+else:
     st.warning("Could not load chart. Please check the stock symbol.")

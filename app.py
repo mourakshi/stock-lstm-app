@@ -10,7 +10,6 @@ import ta
 model = load_model("model/model.h5")
 scaler = joblib.load("model/scaler.save")
 
-
 # ===== Fetch stock data =====
 def fetch_data(ticker):
     df = yf.download(ticker, period="6mo", interval="1d", auto_adjust=False)
@@ -45,7 +44,6 @@ def fetch_data(ticker):
     df.dropna(inplace=True)
     return df
 
-
 # ===== Preprocess for LSTM =====
 def preprocess(df):
     features = ["Close_yfin", "Open_yfin", "High_yfin", "Low_yfin", "Volume_yfin",
@@ -56,11 +54,15 @@ def preprocess(df):
     X_scaled = scaler.transform(last_60)
     return np.expand_dims(X_scaled, axis=0), df["Close_yfin"].iloc[-1]
 
-
 # ===== Streamlit UI =====
+st.set_page_config(page_title="Stock LSTM Predictor", layout="centered")
 st.title("📈 Real-Time Stock Predictor & Investment Simulator")
+
 ticker = st.text_input("Enter stock symbol (e.g. AAPL, TSLA, INFY.NS):", "AAPL")
 investment = st.number_input("💸 Investment Amount ($):", value=1000.0)
+
+# Store fetched dataframe globally
+df = None
 
 if st.button("Predict Next Day Price"):
     with st.spinner("Fetching data and predicting..."):
@@ -70,15 +72,17 @@ if st.button("Predict Next Day Price"):
 
             predicted_scaled = model.predict(X_input)[0][0]
 
+            # Build dummy array to inverse transform
             dummy = np.zeros((1, scaler.n_features_in_))
             dummy[0][0] = predicted_scaled
             predicted_price = scaler.inverse_transform(dummy)[0][0]
 
-            # Output
+            # Show results
             st.success("Prediction Complete ✅")
             st.metric("📉 Last Close Price", f"${last_price:.2f}")
             st.metric("📈 Predicted Next Price", f"${predicted_price:.2f}")
 
+            # Investment simulation
             profit = (predicted_price - last_price) * (investment / last_price)
             st.subheader("💰 Investment Simulation")
             st.write(f"If you invest **${investment:.2f}** now:")
@@ -94,11 +98,16 @@ if st.button("Predict Next Day Price"):
         except Exception as e:
             st.error(f"Unexpected error: {e}")
 
+# ===== Historical Chart =====
+if df is not None:
+    st.subheader(f"📊 Historical Close Price for {ticker}")
+    try:
+        st.line_chart(df["Close_yfin"][-60:])
+    except Exception as e:
+        st.warning(f"Could not load chart: {e}")
 
-# ===== Chart =====
-st.subheader(f"📊 Historical Close Price for {ticker}")
-try:
-    st.line_chart(fetch_data(ticker)["Close_yfin"][-60:])
-except Exception as e:
-    st.warning(f"Could not load chart: {e}")
+
+    try:
+        df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
+        df["EMA_20"] = ta.tren_]()
 

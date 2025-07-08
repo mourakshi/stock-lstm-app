@@ -33,27 +33,28 @@ def fetch_data(ticker):
     }, inplace=True)
 
     try:
-        df["SMA_10"] = ta.trend.sma_indicator(df["Close_yfin"], window=10)
-        df["SMA_20"] = ta.trend.sma_indicator(df["Close_yfin"], window=20)
-        df["EMA_10"] = ta.trend.ema_indicator(df["Close_yfin"], window=10)
-        df["EMA_20"] = ta.trend.ema_indicator(df["Close_yfin"], window=20)
+        # Flattened indicators
+        df["SMA_10"] = ta.trend.sma_indicator(close=df["Close_yfin"], window=10).astype(float)
+        df["SMA_20"] = ta.trend.sma_indicator(close=df["Close_yfin"], window=20).astype(float)
+        df["EMA_10"] = ta.trend.ema_indicator(close=df["Close_yfin"], window=10).astype(float)
+        df["EMA_20"] = ta.trend.ema_indicator(close=df["Close_yfin"], window=20).astype(float)
 
         df["Rolling_STD_10"] = df["Close_yfin"].rolling(window=10).std()
         df["Rolling_Max_10"] = df["Close_yfin"].rolling(window=10).max()
         df["Rolling_Min_10"] = df["Close_yfin"].rolling(window=10).min()
 
         df["Momentum_10"] = df["Close_yfin"] - df["Close_yfin"].shift(10)
-        df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
+        df["RSI_14"] = ta.momentum.rsi(close=df["Close_yfin"], window=14).astype(float)
 
-        # MACD returns 2D DataFrame, pick the column
-        macd_df = ta.trend.macd(df["Close_yfin"])
-        df["MACD"] = macd_df.iloc[:, 0].squeeze()
-        df["Signal_Line"] = ta.trend.macd_signal(df["Close_yfin"]).squeeze()
+        # MACD and Signal
+        macd_df = ta.trend.macd(close=df["Close_yfin"])
+        df["MACD"] = macd_df.squeeze() if isinstance(macd_df, pd.DataFrame) else macd_df
+        df["Signal_Line"] = ta.trend.macd_signal(close=df["Close_yfin"]).astype(float)
 
-        # Bollinger width
-        bb = ta.volatility.BollingerBands(df["Close_yfin"])
-        width = (bb.bollinger_hband() - bb.bollinger_lband()) / bb.bollinger_mavg()
-        df["Bollinger_Width"] = width.squeeze()
+        # Bollinger Band Width
+        bb = ta.volatility.BollingerBands(close=df["Close_yfin"])
+        bb_width = (bb.bollinger_hband() - bb.bollinger_lband()) / bb.bollinger_mavg()
+        df["Bollinger_Width"] = bb_width.astype(float)
 
         df.dropna(inplace=True)
         return df

@@ -45,13 +45,15 @@ def fetch_data(ticker):
         df["Momentum_10"] = df["Close_yfin"] - df["Close_yfin"].shift(10)
         df["RSI_14"] = ta.momentum.rsi(df["Close_yfin"], window=14)
 
-        macd_line = ta.trend.macd(df["Close_yfin"])
-        signal_line = ta.trend.macd_signal(df["Close_yfin"])
-        df["MACD"] = macd_line
-        df["Signal_Line"] = signal_line
+        # MACD returns 2D DataFrame, pick the column
+        macd_df = ta.trend.macd(df["Close_yfin"])
+        df["MACD"] = macd_df.iloc[:, 0].squeeze()
+        df["Signal_Line"] = ta.trend.macd_signal(df["Close_yfin"]).squeeze()
 
+        # Bollinger width
         bb = ta.volatility.BollingerBands(df["Close_yfin"])
-        df["Bollinger_Width"] = (bb.bollinger_hband() - bb.bollinger_lband()) / bb.bollinger_mavg()
+        width = (bb.bollinger_hband() - bb.bollinger_lband()) / bb.bollinger_mavg()
+        df["Bollinger_Width"] = width.squeeze()
 
         df.dropna(inplace=True)
         return df
